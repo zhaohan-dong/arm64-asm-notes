@@ -73,6 +73,75 @@ https://developer.arm.com/documentation/100069/0606/Condition-Codes/Condition-co
 | LE     | Z set, N and V differ| Signed <=                                    |
 | AL     | Any                  | Always. This suffix is normally omitted.     |
 
+## Multiply and Divide
+
+## Multiply
+
+`MUL` only saves the lower 64-bit of the multiplication from two 64-bit registers:
+```asm
+// Multiply Xn by Xm and store the lower 64-bit in Xd
+MUL     Xd, Xn, Xm
+```
+
+`SMULH` and `UMULH` saves the upper 64-bit of multiplication:
+```asm
+// Signed upper 64-bit
+SMULH   Xd, Xn, Xm
+
+// Unsigned upper 64-bit
+UMULH   Xd, Xn, Xm
+```
+
+Multiply two 32-bit registers and store full result in 64-bit register:
+```asm
+// Signed
+SMULL   Xd, Wn, Wm
+
+// Unsigned
+UMULL   Xd, Wn, Wm
+```
+
+Negatives of multiplication:
+```asm
+// Calculates -(Xn * Xm)
+MNEG    Xd, Xn, Xm
+
+// Signed 32-bit version
+SMNEGL  Xd, Wn, Wm
+
+// Unsigned 32-bit version
+UMNEGL  Xd, Wn, Wm
+```
+
+## Accumulate
+
+Does multiplication with accumulation:
+- `ADD` ones: `Xd = Xa + Xn * Xm`
+- `SUB` ones: `Xd = Xa - Xn * Xm`
+- `Xa` can be the same as `Xd`
+- Similarly for `W` register ones
+```asm
+MADD    Xd, Xn, Xm, Xa
+MSUB    Xd, Xn, Xm, Xa
+
+// 32-bit variants
+SMADDL  Xd, Wn, Wm, Xa
+UMADDL  Xd, Wn, Wm, Xa
+SMSUBL  Xd, Wn, Wm, Xa
+UMSUBL  Xd, Wn, Wm, Xa
+```
+
+
+## Divide
+```asm
+// Signed divide Xn by Xm and store in Xd
+SDIV    Xd, Xn, Xm
+
+// Unsigned divide Xn by Xm and store in Xd
+UDIV    Xd, Xn, Xm
+```
+Divide doesn't throw division by zero error, but just returns 0.
+
 # Condition
 > Condition is bad for performance!
 ## Comparison
@@ -171,7 +240,7 @@ Registers:
 - `X0-X18` might be corrupted after running the function, so any value must be **saved to stack before calling function**.
 - `X19-X30` - Callee-saved registers. Caller assumes they stay unchanged. If used by the function, must be **saved within the function and restored before return**.
 - `LR` stores where the next instruction is after function, so must be saved to stack if calling a nested function within the function.
-    - Calling `RET` resumes from current `LR` pointed instruction.
+    - Calling `RET` resumes execution from current `LR` pointed instruction.
 > See Page 143 ARM 64 assembly book
 
 ### Function Integration with C/Python
@@ -197,9 +266,9 @@ __asm__ volatile(
         // ...
         "SUB    %0, %2, X3\n"
         
-        : "=r"(len)  // OutputOperands: "=r"(len) means write to operand 
-        : "r"(str), "r"(outBuf) // InputOperands: "r"(str) means input with variable "str"
-        : "r3", "r4"); // Clobbers: registers that might be used by the asm (note it is r not X or W)
+        : "=r"(len)  // OutputOperands: "=r"(len) means write to operand, corresponds to %0 in the asm
+        : "r"(str), "r"(outBuf) // InputOperands: "r"(str) means input with variable "str". str and outBuf corresponds to %1 and %2 in the asm
+        : "r3", "r4"); // Clobbers: registers that might be used by the asm so C compiler will avoid (note it is r not X or W)
 ```
 - The output is aliased as `%0`
 - The input variables start from `%1`, `%2`, and so on...
@@ -347,3 +416,76 @@ inpErrsz: .word  .-inpErr
 ```
 
 `.` means current address, so `inpErrsz` calculates current memory address - start of inpErr -> inpErr's size.
+
+# Floating-Point Calculation
+> Floating-point calculation introduces rounding errors over time, hence use fixed calculation in financial settings.
+
+## Registers
+ARM FPU and NEON coprocessor shared registers:<br/>
+`V0` - `V31` 128-bit registers.
+`D0` - `D31` is 64-bit double-precision version.
+`S0` - `S31` is 32-bit single-precision version.
+`H0` - `H31` is 16-bit half-precision version.
+
+`V0` - `V7` are caller saved.
+`V8` - `V15` are callee saved.
+
+NEON coprocessor labels `V0` - `V31` as `Q0` - `Q31` for 128-bit integers.
+
+## FMOV
+Use `FMOV` to move between FPU registers and CPU registers
+```asm
+FMOV H1, W2 
+```
+
+## FADD/FSUB
+There are floating point versions of `ADD`, `SUB`, `MUL`, `DIV`, with `F` in the beginning like `FADD`.
+
+There are also:
+```asm
+FNEG
+FABS
+FMAX
+FMIN    
+FSQRT   Sd, Sn  // Sd = Sn^2
+```
+
+## FCVT
+
+`FCVT` converts between single and double precisions.
+
+There are also instructions to convert between floating-point and integers. e.g.:
+```asm
+SCVTF   Dd, Xm  // Signed integer to double FP
+UCVTF   Sd, Wm  // Unsigned integer to single FP
+```
+
+# More Conditional
+
+## CSEL and CSINC
+Conditional select and conditional increase.
+```asm
+// Xd = Xn if condition is true, else Xd = Xm
+CSEL    Xd, Xn, Xm, condition
+
+// Xd = Xn if condition is true, else Xd = Xm + 1
+CSINC   Xd, Xn, Xm, condition
+```
+
+# NEON Coprocessor
+NEON coprocessor can process data in parallel with SIMD (Single Instruction Multiple Data). It divides the 128-bit register into different lanes, then process instructions in parallel between lanes.
+
+Check out ARN website on the lanes concept: https://developer.arm.com/documentation/102474/0100/Fundamentals-of-Armv8-Neon-technology/Registers--vectors--lanes-and-elements
+
+NEON coprocessor shares the same registers with ARM FPU. The instructions that apply to FPU is also for NEON. But the way to address register is slightly different.
+
+```asm
+{register number}.{lane count}{lane size}
+```
+> See page 293 and 300 on the book
+
+Example to add 4 single floating point (128bit-wide) from V2 and V3 to V1: 
+```asm
+// e.g.
+FADD V1.4S, V2.4S, V3.4S 
+```

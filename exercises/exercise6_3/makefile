@@ -1,4 +1,5 @@
 LOWEROBJS = main.o tolower.o
+BUILD_DIR := build
 
 ifdef DEBUG
 DEBUGFLGS = -g
@@ -11,7 +12,10 @@ LSTFLGS =
 all: lower
 
 %.o: %.s
-	as $(DEBUGFLGS) $(LSTFLGS) $< -o build/$@
+	as $(DEBUGFLGS) $(LSTFLGS) $< -o $(BUILD_DIR)/$@
 	
-lower: $(LOWEROBJS)
-	ld -o build/lower build/$(LOWEROBJS) 
+lower: $(LOWEROBJS) $(BUILD_DIR)
+	ld -o $(BUILD_DIR)/lower $(BUILD_DIR)/$(LOWEROBJS)
+
+$(BUILD_DIR):
+	mkdir -p $@

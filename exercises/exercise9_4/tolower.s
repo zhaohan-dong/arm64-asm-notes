@@ -1,14 +1,13 @@
 // Definiton for tolower function
-// X0 has input string
-// X1 has buffer to save the string to
+// X0 has input string - first arg in C
+// X1 has buffer to save the string to - second arg in C
 
 // Assuming buffer is sufficiently large, otherwise we need a parameter of buffer length to prevent overflow
 
-.global tolower
+.global mytolower
 
-tolower:
+mytolower:
     MOV     X3, X1 // Copy address from X1 to X3 for returning length in X0
-
 loop:
     LDRB    W4, [X0], #1
     CMP     W4, #'A' // Compare the character with 'A'

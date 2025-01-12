@@ -12,18 +12,18 @@
 .ENDM
 
 _start:
-    LDR     X1, =buffer
-    LDR     X2, =input1
+    LDR     X0, =buffer
+    LDR     X1, =input1
     BL      tolower
     print   buffer, X0
 
-    LDR     X1, =buffer
-    LDR     X2, =input2
+    LDR     X0, =buffer
+    LDR     X1, =input2
     BL      tolower
     print   buffer, X0
 
-    LDR     X1, =buffer
-    LDR     X2, =input3
+    LDR     X0, =buffer
+    LDR     X1, =input3
     BL      tolower
     print   buffer, X0
 

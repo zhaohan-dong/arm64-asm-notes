@@ -15,15 +15,42 @@
 `MOVK Xd, #imm16, LSL #4` logical shift left `imm16` by 4-bits<br/>
 `MOVN Xd, #imm16` moves logical NOT of `imm16` into `Xd`
 
-# Condition
-> Condition is bad for performance!
-## Comparison
-Usually `CMP` comparing two registers by substraction.<br/>
-`CMN`: Uses addition instead of subtraction.<br/>
-`TST`: Performs a bitwise AND operation between Xn and Operand2.
+# Arithmetics
+## ADD(S) and SUB(S)
 
+The basic form of `ADD` and `SUB` adds/substracts `Xs` with `Operand2`, then store the result in `Xd`.
 
-## Branching
+```asm
+ADD{S}      Xd, Xs, Operand2 
+ADC{S}      Xd, Xs, Operand2 
+
+SUB{S}      Xd, Xs, Operand2
+SBC{S}      Xd, Xs, Operant2
+```
+
+There are cases where a number might be greater than 64-bit, so we need multiple registers. `ADDS` and `SUBS` does the same work as `ADD` and `SUB`, but also adds a carry/borrow condition in the `NZCV` register.
+
+Think about [carry and borrow](https://en.wikipedia.org/wiki/Carry_(arithmetic)) in arithmetic. The `NZCV` register is the 1 when you do carry/borrow.
+
+The `ADC`/`SBC` works based on the previous `ADDS`/`SUBS` carry/borrow condition. The `ADCS`/`SBCS` sets the carry/borrow just like `ADDS`/`SUBS`.
+
+Example:
+```asm
+// Simple addition/subtraction with one register sized-number
+ADD     X0, X1, #4  // X0 = X1 + 4
+SUB     X2, X3, X4 // X2 = X3 - X4
+
+// Adding and subtracting a 192-bit number
+ADDS    X0, X3, #1  // Add lower bits and set carry
+ADCS    X1, X4, #1  // Add middle bits with carry, and set a new carry
+ADC     X2, X5, #1  // Add higher bits with carry
+
+SUBS    X0, X3, #1  // Subtract lower bits and set borrow
+SBCS    X1, X4, #1  // Subtract middle bits with borrow, and set a new carry
+SBC     X2, X5, #1  // Subtract higher bits with borrow
+```
+
+## NZCV Register (aka CPSR)
 Comparisons, `ADDS`/`SUBS`, or `S`-variant logical operators sets the `NZCV` register (`CPSR` in ARM) used for branching.
 
 https://developer.arm.com/documentation/100069/0606/Condition-Codes/Condition-code-suffixes-and-related-flags
@@ -45,6 +72,27 @@ https://developer.arm.com/documentation/100069/0606/Condition-Codes/Condition-co
 | GT     | Z clear, N and V the same | Signed >                        |
 | LE     | Z set, N and V differ| Signed <=                                    |
 | AL     | Any                  | Always. This suffix is normally omitted.     |
+
+# Condition
+> Condition is bad for performance!
+## Comparison
+Usually `CMP` comparing two registers by substraction.<br/>
+`CMN`: Uses addition instead of subtraction.<br/>
+`TST`: Performs a bitwise AND operation between Xn and Operand2.<br/>
+
+Comparison stores the result in the `NZCV` register, to be used later with branching instruction.
+
+## Branching
+
+Branching retrieves the `NZCV` registers value and performs condition based on it.
+
+```asm
+// Jump to branch without testing condition
+B   branch_name
+
+//  Jump to function
+BL  function_name
+```
 
 ```asm
 CMP X1, X2 // Or SUBS X2, X2, #1, which means testing if X2 reaches 0
@@ -89,6 +137,8 @@ Two ways of importing:
     `.global func_name` makes `func_name` function available for other programs.<br/>
     Only one program can be called `_start`.<br/>
 
+`gcc` compiles `.S` file with C-style includes with capital S.
+
 ## Macro
 > Good for performance, bad for conserving memory.<br/>Inserts copy of the code at every point used, so no need to push/pop stack.
 
@@ -123,6 +173,36 @@ Registers:
 - `LR` stores where the next instruction is after function, so must be saved to stack if calling a nested function within the function.
     - Calling `RET` resumes from current `LR` pointed instruction.
 > See Page 143 ARM 64 assembly book
+
+### Function Integration with C/Python
+
+**Using Extern**<br/>
+When you use it as an extern, e.g.:
+```C
+extern int mytoupper( char *, char * );
+```
+- The first `char*` input goes to `X0`, the second `char*` input goes to `X1`, and so on...
+- The returned int goes to `X0`
+
+---
+
+**Using Inline**<br/>
+When you use it inline, e.g.:
+```C
+__asm__ volatile(
+        "mov    X3, %2\n"
+        "loop:\n"
+        "LDRB   W4, [%1], #1\n"
+        "CMP    W4, #'A'\n"
+        // ...
+        "SUB    %0, %2, X3\n"
+        
+        : "=r"(len)  // OutputOperands: "=r"(len) means write to operand 
+        : "r"(str), "r"(outBuf) // InputOperands: "r"(str) means input with variable "str"
+        : "r3", "r4"); // Clobbers: registers that might be used by the asm (note it is r not X or W)
+```
+- The output is aliased as `%0`
+- The input variables start from `%1`, `%2`, and so on...
 
 # Memory Access
 ## Load and store register from memory
@@ -212,6 +292,7 @@ STR W6, [FP, #SUM]   // Store sum at 0x0FF8
 
 Save LR and previous program's FP with the first 16-byte:
 <img src="assets/stackframe2.png" />
+
 ```asm
 // Assume SP = 0x1000, Old FP = 0x1000
 
@@ -242,3 +323,27 @@ ADD   SP, SP, #16
 // Restore old FP and LR pair, now SP at 0x1000
 LDP   FP, LR, [SP], #16
 ```
+
+## `.text` and `.data` part
+
+`.text` defines immutable constants. `.data` defines mutable variables.
+
+`.fill` directive is similar to `calloc()` in C, where addresses are filled with an initial value. `.fill 255, 1, 0` fills `255` elements, each of size `1` and value `0`.
+
+`.asciz` defines `ascii` char array with null-termination. `.ascii` doesn't provide null-termination.
+
+# Unix/Linux System Service
+## Registers
+`X0`-`X7` registers are used for parameters.<br/>
+`X8` register is used for specifying service to call.<br/>
+`SVC 0` means introduce software interrupt to call the service.<br/>
+Return code is saved in `X0`.
+
+Calculate string size example:
+
+```asm
+inpErr: .asciz	"Failed to open input file.\n"
+inpErrsz: .word  .-inpErr 
+```
+
+`.` means current address, so `inpErrsz` calculates current memory address - start of inpErr -> inpErr's size.

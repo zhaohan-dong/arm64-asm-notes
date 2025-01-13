@@ -10,28 +10,28 @@
 
 _start:
     // Load string to print
-    mov X0, #1
-    ldr X1, =print
-    mov X2, #5 // Length of the string
+    MOV     X0, #1
+    LDR     X1, =print
+    MOV     X2, #5 // Length of the string
 
     // Set loop count to 4
-    mov X3, #10
+    MOV     X3, #10
 
 // Print "Loop\n" whenever the loop is executed
 loop:
     // Linux write
-    mov X0, #1
-    mov X8, #64
-    svc 0
+    MOV     X0, #1
+    MOV     X8, #64
+    SVC     0
     // subtract test if the counter reaches 0
-    subs X3, X3, #1
-    b.hi loop
+    SUBS    X3, X3, #1
+    B.HI    loop
 
 loopend:
     // Exit
-    mov X0, #0
-    mov X8, #93
-    svc 0
+    MOV     X0, #0
+    MOV     X8, #93
+    SVC     0
 
 .data
 print: .ascii "Loop\n"

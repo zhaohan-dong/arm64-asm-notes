@@ -18,7 +18,7 @@
 	mov	    X3, X\reg	// for the %x
 	mov	    X1, #\reg	
 	add	    X1, X1, #'0'	// for %c
-	ldr  	    X0, =ptfStr // printf format str
+	ldr  	X0, =ptfStr // printf format str
 	bl	    printf	// call printf
 	ldp	    X18, LR, [SP], #16
 	ldp	    X16, X17, [SP], #16

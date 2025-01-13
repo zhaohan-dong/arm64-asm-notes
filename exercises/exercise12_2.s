@@ -4,24 +4,21 @@
 .global main
 
 main:
-    LDR     X1, =divisor
-    LDR     X2, =denominator
-    LDR     S1, [X1]
-    LDR     S2, [X2]
+    LDR     S1, divisor      // Load divisor value into S1
+    LDR     S2, denominator  // Load denominator value into S2
     
     // Division
     FDIV    S0, S1, S2
 
     // Print
-    FCVT    D0, S0
-    FMOV    X1, D0
+    FCVT    D0, S0      // Convert to double precision, and print the %f from D0
     LDR     X0, =result
     BL      printf
 
     // Exit
-    MOV     X8, #93
-    MOV     X0, #0          // Exit code 0
-    SVC     #0              // Make syscall
+	MOV     X0, #0      // Use 0 return code
+    MOV     X8, #93     // Service command code 93 terminates
+    SVC     0           // Call Linux to terminate
 
 .data
 divisor:        .single 10

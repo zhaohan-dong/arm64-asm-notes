@@ -275,21 +275,31 @@ __asm__ volatile(
 
 # Memory Access
 ## Load and store register from memory
-Square bracket on `[X0]` signifies load from the memory address stored in X0, not the register content of X0.<br/>
+> IMPORTANT: Pointer vs Value
+> - `LDR Xd, =label` or `STR Xd, =label` loads/stores from pointer from/to the label address
+> - `LDR Xd, label` or `STR Xd, label` loads/stores directly from/to the label's content
+>
+> Use pointer for strings, arrays, etc. just like you use it in C.
+
+Square bracket on `[Xn]` signifies load from the memory address stored in `Xn`, not the register content of `Xn`.<br/>
+
 Even though the stack grows downward, the memory save and load instructions access low -> high memory address.
 ```asm
-// load the address of mynumber into X1
+// Load the address of mynumber into X1 (X1 is a pointer)
 LDR X1, =mynumber
 
-// load the word stored at mynumber into X2
+// Load mynumber pointed to by X1 into X2
 LDR X2, [X1]
 
+// Or load mynumber's value directly into X2
+LDR X2, number
+
 .data
-mynumber: .QUAD 0x123456789ABCDEF0 
+mynumber: .quad 0x123456789ABCDEF0
 ```
 To load types other than word or quad, and pad correctly:
 ```asm
-LDR{type} Xt, [Xa] 
+LDR{type} Xt, [Xa]  // Xa is a pointer to the address
 ```
 Type can be one of the following:
 
@@ -431,6 +441,15 @@ ARM FPU and NEON coprocessor shared registers:<br/>
 `V8` - `V15` are callee saved.
 
 NEON coprocessor labels `V0` - `V31` as `Q0` - `Q31` for 128-bit integers.
+
+> NOTE with C `printf`: When you use string substitution of `"%f"`, C takes the floating point number starting from `D0` - `D31`, instead of from the general register like `X1` etc. The expected floating point format is also `double` precision ONLY!
+>
+> Example:
+> ```asm
+> // X0 has "%f\n" in message and D0 has a double floating point
+> LDR     X0, =message
+> BL      printf
+> ```
 
 ## FMOV
 Use `FMOV` to move between FPU registers and CPU registers

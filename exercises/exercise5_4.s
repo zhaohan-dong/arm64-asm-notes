@@ -49,9 +49,10 @@ cont:
 
 // Buffer overflow
 overflow:
-    // Overwrite second to last with \n
+    // Overwrite second to last with '\n'
     mov W5, #'\n'
     strb W5, [X3, #-1]
+    // Null-terminate the string
     mov W5, #0
     strb W5, [X3], #1
 
